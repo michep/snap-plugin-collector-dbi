@@ -30,18 +30,17 @@ type QueryType struct {
 }
 
 type QueryResultType struct {
-	ResultName     string               `json:"name"`
-	InstancePrefix string               `json:"instance_prefix"`
-	ValueFrom      string               `json:"value_from"`
-	Namespace      []QueryNamespaceType `json:"namespace"`
+	ResultName string               `json:"name"`
+	ValueFrom  string               `json:"value_from"`
+	Namespace  []QueryNamespaceType `json:"namespace"`
 }
 
 type QueryNamespaceType struct {
-	Source         string `json:"source"`
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	InstanceFrom   string `json:"instance_from"`
-	String         string `json:"string"`
+	Source       string `json:"source"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	InstanceFrom string `json:"instance_from"`
+	String       string `json:"string"`
 }
 
 type DatabasesType struct {

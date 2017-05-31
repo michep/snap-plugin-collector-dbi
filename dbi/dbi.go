@@ -53,6 +53,8 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.Metri
 	metrics := []plugin.MetricType{}
 	data := map[string]interface{}{}
 
+	fmt.Printf("!!!DEBUG CollectMetrics() mts=%+v\n", mts)
+
 	// initialization - done once
 	if dbiPlg.initialized == false {
 		// CollectMetrics(mts) is called only when mts has one item at least
@@ -66,7 +68,8 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.Metri
 			return nil, err
 		}
 		dbiPlg.initialized = true
-	} // end of initialization
+	}
+
 	// execute dbs queries and get output
 	data, err = dbiPlg.executeQueries()
 	if err != nil {
@@ -84,7 +87,6 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.Metri
 			}
 			metrics = append(metrics, metric)
 		}
-
 	}
 
 	return metrics, nil
@@ -98,7 +100,6 @@ func (dbiPlg *DbiPlugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
 
 // GetMetricTypes returns metrics types exposed by snap-plugin-collector-dbi
 func (dbiPlg *DbiPlugin) GetMetricTypes(cfg plugin.ConfigType) ([]plugin.MetricType, error) {
-	metrics := map[string]interface{}{}
 	mts := []plugin.MetricType{}
 
 	err := dbiPlg.setConfig(cfg)
@@ -107,13 +108,26 @@ func (dbiPlg *DbiPlugin) GetMetricTypes(cfg plugin.ConfigType) ([]plugin.MetricT
 		return nil, err
 	}
 
-	metrics, err = dbiPlg.getMetrics()
-	if err != nil {
-		return nil, err
-	}
-
-	for name := range metrics {
-		mts = append(mts, plugin.MetricType{Namespace_: core.NewNamespace(splitNamespace(name)...)})
+	for _, db := range dbiPlg.databases { // cycle databases
+		for _, queryName := range db.QrsToExec { // cycle database queries
+			query := dbiPlg.queries[queryName]
+			for _, result := range query.Results { // cycle query results
+				namespace := core.NewNamespace(nsPrefix...)
+				// namespace = namespace.AddStaticElement(dbname) //TODO: Do we really need database name as static element, if we can configure it in namespace?
+				for _, ns := range result.Namespace { // cycle result namespaces
+					switch ns.Source {
+					case "string":
+						namespace = namespace.AddStaticElement(ns.String)
+					default:
+						namespace = namespace.AddDynamicElement(ns.Name, ns.Description)
+					}
+				}
+				mt := plugin.MetricType{
+					Namespace_: namespace,
+				}
+				mts = append(mts, mt)
+			}
+		}
 	}
 
 	return mts, nil
@@ -144,37 +158,11 @@ func (dbiPlg *DbiPlugin) setConfig(cfg interface{}) error {
 	return nil
 }
 
-// getMetrics returns map with dbi metrics values, where keys are metrics names
-func (dbiPlg *DbiPlugin) getMetrics() (map[string]interface{}, error) {
-	metrics := map[string]interface{}{}
-
-	err := openDBs(dbiPlg.databases)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// execute dbs queries and get statement outputs
-	metrics, err = dbiPlg.executeQueries()
-	if err != nil {
-		return nil, err
-	}
-
-	errors := closeDBs(dbiPlg.databases)
-	if errors != nil {
-		var dbs []string
-		for r := range errors {
-			dbs = append(dbs, errors[r].Error())
-		}
-		return metrics, fmt.Errorf("Cannot close database(s):\n %s", dbs)
-	}
-	return metrics, nil
-}
-
 // executeQueries executes all defined queries of each database and returns results as map to its values,
 // where keys are equal to columns' names
 func (dbiPlg *DbiPlugin) executeQueries() (map[string]interface{}, error) {
 	data := map[string]interface{}{}
+	//metrics := []plugin.MetricType{}
 
 	//execute queries for each defined databases
 	for dbName, db := range dbiPlg.databases {
@@ -184,9 +172,12 @@ func (dbiPlg *DbiPlugin) executeQueries() (map[string]interface{}, error) {
 			continue
 		}
 
-		// retrive name from queries to be executed for this db
+		// retrieve name from queries to be executed for this db
 		for _, queryName := range db.QrsToExec {
 			statement := dbiPlg.queries[queryName].Statement
+
+			fmt.Printf("!!!DEBUG executeQueries() queryName=%+v\n", queryName)
+			fmt.Printf("!!!DEBUG executeQueries() statement=%+v\n", statement)
 
 			out, err := db.Executor.Query(queryName, statement)
 			if err != nil {
@@ -195,10 +186,18 @@ func (dbiPlg *DbiPlugin) executeQueries() (map[string]interface{}, error) {
 				continue
 			}
 
+			fmt.Printf("!!!DEBUG executeQueries() out=%+v\n", out)
+			fmt.Printf("!!!DEBUG executeQueries() dbiPlg.queries[queryName].Results=%+v\n", dbiPlg.queries[queryName].Results)
+
 			for resName, res := range dbiPlg.queries[queryName].Results {
 				instanceOk := false
 				// to avoid inconsistency of columns names caused by capital letters (especially for postgresql driver)
-				instanceFrom := strings.ToLower(res.InstanceFrom)
+				//instanceFrom := strings.ToLower(res.InstanceFrom)
+
+				fmt.Printf("!!!DEBUG executeQueries() resName=%+v\n", resName)
+				fmt.Printf("!!!DEBUG executeQueries() res=%+v\n", res)
+
+				instanceFrom := strings.ToLower(res.Namespace[0].InstanceFrom)
 				valueFrom := strings.ToLower(res.ValueFrom)
 
 				if !isEmpty(instanceFrom) {
@@ -207,6 +206,8 @@ func (dbiPlg *DbiPlugin) executeQueries() (map[string]interface{}, error) {
 					}
 				}
 
+				fmt.Printf("!!!DEBUG executeQueries() instanceOk=%+v\n", instanceOk)
+
 				for index, value := range out[valueFrom] {
 					instance := ""
 
@@ -214,11 +215,19 @@ func (dbiPlg *DbiPlugin) executeQueries() (map[string]interface{}, error) {
 						instance = fmt.Sprintf("%v", fixDataType(out[instanceFrom][index]))
 					}
 
+					fmt.Printf("!!!DEBUG executeQueries() instance=%+v\n", instance)
+
+					//TODO: !!!! create correct Namespace with dynamic elements
 					key := createNamespace(dbName, resName, res.InstancePrefix, instance)
+
+					fmt.Printf("!!!DEBUG executeQueries() key=%+v\n", key)
 
 					if _, exist := data[key]; exist {
 						return nil, fmt.Errorf("Namespace `%s` has to be unique, but is not", key)
 					}
+
+					fmt.Printf("!!!DEBUG executeQueries() value=%+v\n", value)
+					fmt.Printf("!!!DEBUG executeQueries() fixDataType(value)=%+v\n", fixDataType(value))
 
 					data[key] = fixDataType(value)
 				}
@@ -230,6 +239,7 @@ func (dbiPlg *DbiPlugin) executeQueries() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("No data obtained from defined queries")
 	}
 
+	fmt.Printf("!!!DEBUG executeQueries() data=%+v\n", data)
 	return data, nil
 }
 

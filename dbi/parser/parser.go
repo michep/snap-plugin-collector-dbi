@@ -65,6 +65,7 @@ func GetDBItemsFromConfig(fName string) (map[string]*dtype.Database, map[string]
 		dbs: map[string]*dtype.Database{},
 	}
 
+	fmt.Printf("!!!DEBUG GetDBItemsFromConfig() sqlCnf.Queries=%+v\n", sqlCnf.Queries)
 	for _, query := range sqlCnf.Queries {
 		err := p.addQuery(query)
 		if err != nil {
@@ -87,11 +88,11 @@ func GetDBItemsFromConfig(fName string) (map[string]*dtype.Database, map[string]
 func (p *Parser) addDatabase(dt cfg.DatabasesType) error {
 
 	if len(strings.TrimSpace(dt.Name)) == 0 {
-		return fmt.Errorf("Data name is empty")
+		return fmt.Errorf("Database name is empty")
 	}
 
 	if _, exist := p.dbs[dt.Name]; exist {
-		return fmt.Errorf("Data name `%+s` is not unique", dt.Name)
+		return fmt.Errorf("Database name `%+s` is not unique", dt.Name)
 	}
 
 	//getting info about which queries are to be executed
@@ -133,14 +134,26 @@ func (p *Parser) addQuery(qt cfg.QueryType) error {
 	for _, r := range qt.Results {
 
 		if _, exist := results[r.ResultName]; exist {
-			return fmt.Errorf("Query `%+s` has result `%+s` which name is not unique", qt.Name, r.ResultName)
+			return fmt.Errorf("Query `%+s` has Result `%+s` which name is not unique", qt.Name, r.ResultName)
+		}
+
+		namesp := []dtype.Namespace{}
+		el := dtype.Namespace{}
+		for _, ns := range r.Namespace {
+			el = dtype.Namespace{
+				Source:       ns.Source,
+				String:       ns.String,
+				Name:         ns.Name,
+				Description:  ns.Description,
+				InstanceFrom: ns.InstanceFrom,
+			}
+			namesp = append(namesp, el)
 		}
 
 		// add result to the map `results`
 		results[r.ResultName] = dtype.Result{
-			InstanceFrom:   r.InstanceFrom,
-			InstancePrefix: r.InstancePrefix,
-			ValueFrom:      r.ValueFrom,
+			Namespace: namesp,
+			ValueFrom: r.ValueFrom,
 		}
 
 	} // end of range q.Results

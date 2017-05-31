@@ -1,68 +1,102 @@
 {
-      "queries": [
-          {
-              "name": "q1",
-              "statement": "statementA",
-              "results": [
-                  {   "name": "",
-                      "instance_from": "category",
-                      "value_from": "value"
-                  }
-              ]
-          },
-          {
-              "name": "q2",
-              "statement": "statementB",
-              "results": [
-                  {
-                      "name": "rName1",
-                      "instance_from": "category",
-                      "instance_prefix": "category prefix",
-                      "value_from": "value"
-                  },
-                  {
-                      "name": "rName2",
-                      "instance_from": "category",
-                      "value_from": "value"
-                  }
-              ]
-          }
-      ],
-      "databases": [
-          {
-              "name": "dbName1",
-              "driver": "mysql",
-              "driver_option": {
-                  "host": "localhost",
-                  "port": "3306",
-                  "username": "tester",
-                  "password": "passwd",
-                  "dbname": "mydb"
-              },
-              "dbqueries": [
-                  {
-                      "query": "q1"
-                  }
-              ]
-          },
-          {
-              "name": "dbName2",
-              "driver": "postgres",
-              "driver_option": {
-                  "host": "localhost",
-                  "username": "tester",
-                  "password": "passwd",
-                  "dbname": "mydb"
-              },
-              "selectdb": "slctdb",
-              "dbqueries": [
-                  {
-                      "query": "q1"
-                  },
-                  {
-                      "query": "q2"
-                  }
-              ]
-          }
-      ]
-  }
+    "queries": [
+        {
+            "name": "q1",
+            "statement": "statementA",
+            "results": [
+                {
+                    "name": "",
+                    "value_from": "column_val1",
+                    "namespace": [
+                        {
+                            "source": "string",
+                            "string": "q1_stA_dummy"
+                        },
+                        {
+                            "source": "column",
+                            "instance_from": "column_element1",
+                            "name": "dummy1",
+                            "description": "dummy dynamic element1"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "q2",
+            "statement": "statementB",
+            "results": [
+                {
+                    "name": "rName1",
+                    "instance_prefix": "category prefix",
+                    "value_from": "column_value2",
+                    "namespace": [
+                        {
+                            "source": "string",
+                            "string": "q2_stB_dummy2"
+                        },
+                        {
+                            "source": "column",
+                            "instance_from": "column_element2",
+                            "name": "dummy2",
+                            "description": "dummy dynamic element2"
+                        }
+                    ]
+                },
+                {
+                    "name": "rName2",
+                    "value_from": "column_value3",
+                    "namespace": [
+                        {
+                            "source": "string",
+                            "string": "q2_stB_dummy3"
+                        },
+                        {
+                            "source": "column",
+                            "instance_from": "column_element3",
+                            "name": "dummy3",
+                            "description": "dummy dynamic element3"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "databases": [
+        {
+            "name": "dbName1",
+            "driver": "mysql",
+            "driver_option": {
+                "host": "localhost",
+                "port": "3306",
+                "username": "tester",
+                "password": "passwd",
+                "dbname": "mydb"
+            },
+            "dbqueries": [
+                {
+                    "query": "q1"
+                }
+            ]
+        },
+        {
+            "name": "dbName2",
+            "driver": "oci8",
+            "driver_option": {
+                "host": "localhost",
+                "username": "tester",
+                "password": "passwd",
+                "dbname": "mydb"
+            },
+            "selectdb": "slctdb",
+            "dbqueries": [
+                {
+                    "query": "q1"
+                },
+                {
+                    "query": "q2"
+                }
+            ]
+        }
+    ]
+}

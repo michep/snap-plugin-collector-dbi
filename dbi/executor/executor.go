@@ -18,6 +18,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"golang.org/x/tools/go/gcimporter15/testdata"
 	"strings"
 )
 
@@ -32,8 +33,9 @@ type Execution interface {
 
 // SQLExecutor keeps handle to sql database and map of prepared queries' statements
 type SQLExecutor struct {
-	handle *sql.DB
-	stmts  map[string]*sql.Stmt
+	handle       *sql.DB
+	stmts        map[string]*sql.Stmt
+	queryResults map[string][]interface{} // cache query results here during CollectMetrics run
 }
 
 // NewExecutor returns a pointer to SQLExecutor with initialized map of stmt
@@ -70,6 +72,14 @@ func (se *SQLExecutor) SwitchToDB(dbName string) error {
 
 // Query executes a query and returns its output in convenient format (as a map to its values where keys are the names of columns)
 func (se *SQLExecutor) Query(name, statement string) (map[string][]interface{}, error) {
+	fmt.Printf("!!!DEBUG Query() name=%+v\n", name)
+	fmt.Printf("!!!DEBUG Query() statement=%+v\n", statement)
+
+	if table, exist := se.queryResults[name]; exist { // check that we already have query results
+		fmt.Printf("!!!DEBUG Query() got cached table=%+v\n", table)
+		return table
+	}
+
 	rows, err := execQuery(se, name, statement)
 	defer rows.Close()
 
@@ -103,13 +113,18 @@ func (se *SQLExecutor) Query(name, statement string) (map[string][]interface{}, 
 			return nil, err
 		}
 
+		fmt.Printf("!!!DEBUG Query() vals=%+v\n", vals)
 		for i, val := range vals {
 			columnName := strings.ToLower(cols[i])
+			fmt.Printf("!!!DEBUG Query() val=%+v\n", val)
+			fmt.Printf("!!!DEBUG Query() columnName=%+v\n", columnName)
 			table[columnName] = append(table[columnName], val)
 		}
 		cnt++
 	} // end of row.Next()
 
+	fmt.Printf("!!!DEBUG Query() table=%+v\n", table)
+	se.queryResults[name] = table
 	return table, nil
 }
 

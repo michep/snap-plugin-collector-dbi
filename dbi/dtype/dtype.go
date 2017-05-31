@@ -46,7 +46,15 @@ type Query struct {
 // distinguish results defined by `InstanceFrom` (additionally prefix can be added)
 // or whose content will be used as the actual data dfined by `ValueFrom.
 type Result struct {
-	InstanceFrom   string
+	Namespace      []Namespace
 	InstancePrefix string
 	ValueFrom      string
+}
+
+type Namespace struct {
+	Source       string
+	Name         string
+	Description  string
+	InstanceFrom string
+	String       string
 }
