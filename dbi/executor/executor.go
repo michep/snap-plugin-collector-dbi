@@ -18,7 +18,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"golang.org/x/tools/go/gcimporter15/testdata"
 	"strings"
 )
 
@@ -28,20 +27,22 @@ type Execution interface {
 	Close() error
 	Ping() error
 	SwitchToDB(dbName string) error
-	Query(name, statement string) (map[string][]interface{}, error)
+	Query(name, statement string) (int, map[string][]interface{}, error)
+	ClearCachedResults() error
 }
 
 // SQLExecutor keeps handle to sql database and map of prepared queries' statements
 type SQLExecutor struct {
 	handle       *sql.DB
 	stmts        map[string]*sql.Stmt
-	queryResults map[string][]interface{} // cache query results here during CollectMetrics run
+	queryResults map[string]map[string][]interface{} // cache query results here during CollectMetrics run
+	rowNums      map[string]int
 }
 
 // NewExecutor returns a pointer to SQLExecutor with initialized map of stmt
 // as an Execution interface defined in that way for mocking purposes
 var NewExecutor = func() Execution {
-	return &SQLExecutor{stmts: make(map[string]*sql.Stmt)}
+	return &SQLExecutor{stmts: make(map[string]*sql.Stmt), queryResults: make(map[string]map[string][]interface{}), rowNums: make(map[string]int)}
 }
 
 // Open opens a database specified by its database driver name and a driver-specific
@@ -71,31 +72,28 @@ func (se *SQLExecutor) SwitchToDB(dbName string) error {
 }
 
 // Query executes a query and returns its output in convenient format (as a map to its values where keys are the names of columns)
-func (se *SQLExecutor) Query(name, statement string) (map[string][]interface{}, error) {
-	fmt.Printf("!!!DEBUG Query() name=%+v\n", name)
-	fmt.Printf("!!!DEBUG Query() statement=%+v\n", statement)
-
+func (se *SQLExecutor) Query(name, statement string) (int, map[string][]interface{}, error) {
 	if table, exist := se.queryResults[name]; exist { // check that we already have query results
-		fmt.Printf("!!!DEBUG Query() got cached table=%+v\n", table)
-		return table
+		//fmt.Printf("!!!DEBUG Query() got cached table=%+v\n", table)
+		return se.rowNums[name], table, nil
 	}
 
 	rows, err := execQuery(se, name, statement)
 	defer rows.Close()
 
 	if err != nil {
-		return nil, fmt.Errorf("Cannot execute query `%+v`, err=%+v", statement, err)
+		return 0, nil, fmt.Errorf("Cannot execute query `%+v`, err=%+v", statement, err)
 	}
 
 	// get query output (rows) and parse it to map
 	cols, err := rows.Columns()
 
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	if len(cols) == 0 {
-		return nil, errors.New("Invalid row does not contain columns")
+		return 0, nil, errors.New("Invalid row does not contain columns")
 	}
 
 	table := map[string][]interface{}{}
@@ -110,22 +108,22 @@ func (se *SQLExecutor) Query(name, statement string) (map[string][]interface{}, 
 	for rows.Next() {
 		err = rows.Scan(valsPtrs...)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
 
-		fmt.Printf("!!!DEBUG Query() vals=%+v\n", vals)
+		//fmt.Printf("!!!DEBUG Query() vals=%+v\n", vals)
 		for i, val := range vals {
 			columnName := strings.ToLower(cols[i])
-			fmt.Printf("!!!DEBUG Query() val=%+v\n", val)
-			fmt.Printf("!!!DEBUG Query() columnName=%+v\n", columnName)
+			//fmt.Printf("!!!DEBUG Query() val=%+v\n", val)
+			//fmt.Printf("!!!DEBUG Query() columnName=%+v\n", columnName)
 			table[columnName] = append(table[columnName], val)
 		}
 		cnt++
 	} // end of row.Next()
 
-	fmt.Printf("!!!DEBUG Query() table=%+v\n", table)
 	se.queryResults[name] = table
-	return table, nil
+	se.rowNums[name] = cnt
+	return cnt, table, nil
 }
 
 // execQuery creates a prepared statement and executes a query that returns rows (typically a SELECT statement)
@@ -144,4 +142,9 @@ func execQuery(se *SQLExecutor, name, statement string) (*sql.Rows, error) {
 	}
 	// execute query, output data is returned as rows
 	return se.stmts[name].Query()
+}
+
+func (se *SQLExecutor) ClearCachedResults() error {
+	se.queryResults = make(map[string]map[string][]interface{})
+	return nil
 }

@@ -31,12 +31,12 @@ import (
 // Parser holds maps to queries and databases
 type Parser struct {
 	qrs map[string]*dtype.Query
-	dbs map[string]*dtype.Database
+	db  *dtype.Database
 }
 
 // GetDBItemsFromConfig parses the contents of the file `fName` and returns maps to
 // databases and queries instances which structurs are pre-defined in package dtype
-func GetDBItemsFromConfig(fName string) (map[string]*dtype.Database, map[string]*dtype.Query, error) {
+func GetDBItemsFromConfig(fName string) (*dtype.Database, map[string]*dtype.Query, error) {
 
 	var sqlCnf cfg.SQLConfig
 
@@ -56,16 +56,21 @@ func GetDBItemsFromConfig(fName string) (map[string]*dtype.Database, map[string]
 
 	err = json.Unmarshal(data, &sqlCnf)
 
+	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() sqlCnf=%+v\n", sqlCnf)
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("Invalid structure of file `%v` to be unmarshalled", fName)
 	}
 
+	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() sqlCnf=%+v\n", sqlCnf)
+
 	p := &Parser{
 		qrs: map[string]*dtype.Query{},
-		dbs: map[string]*dtype.Database{},
+		//db: map[string]*dtype.Database{},
 	}
 
-	fmt.Printf("!!!DEBUG GetDBItemsFromConfig() sqlCnf.Queries=%+v\n", sqlCnf.Queries)
+	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() p1=%+v\n", p)
+
 	for _, query := range sqlCnf.Queries {
 		err := p.addQuery(query)
 		if err != nil {
@@ -74,14 +79,17 @@ func GetDBItemsFromConfig(fName string) (map[string]*dtype.Database, map[string]
 
 	}
 
-	for _, db := range sqlCnf.Databases {
-		err := p.addDatabase(db)
-		if err != nil {
-			return nil, nil, err
-		}
+	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() p2=%+v\n", p)
+
+	err = p.addDatabase(sqlCnf.Database)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return p.dbs, p.qrs, nil
+	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() db=%+v\n", p.db)
+	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() qrs=%+v\n", p.qrs)
+
+	return p.db, p.qrs, nil
 }
 
 // addDatabase adds database instance to databases
@@ -91,9 +99,9 @@ func (p *Parser) addDatabase(dt cfg.DatabasesType) error {
 		return fmt.Errorf("Database name is empty")
 	}
 
-	if _, exist := p.dbs[dt.Name]; exist {
-		return fmt.Errorf("Database name `%+s` is not unique", dt.Name)
-	}
+	//if _, exist := p.dbs[dt.Name]; exist {
+	//	return fmt.Errorf("Database name `%+s` is not unique", dt.Name)
+	//}
 
 	//getting info about which queries are to be executed
 	execQrs := []string{}
@@ -102,7 +110,7 @@ func (p *Parser) addDatabase(dt cfg.DatabasesType) error {
 	}
 
 	// adding database to databases map
-	p.dbs[dt.Name] = &dtype.Database{
+	p.db = &dtype.Database{
 		Driver:    dt.Driver,
 		Host:      dt.DriverOption.Host,
 		Port:      dt.DriverOption.Port,
@@ -141,7 +149,7 @@ func (p *Parser) addQuery(qt cfg.QueryType) error {
 		el := dtype.Namespace{}
 		for _, ns := range r.Namespace {
 			el = dtype.Namespace{
-				Source:       ns.Source,
+				Type:         ns.Type,
 				String:       ns.String,
 				Name:         ns.Name,
 				Description:  ns.Description,

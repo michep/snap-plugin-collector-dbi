@@ -41,7 +41,7 @@ const (
 
 // DbiPlugin holds information about the configuration database and defined queries
 type DbiPlugin struct {
-	databases   map[string]*dtype.Database
+	database    *dtype.Database
 	queries     map[string]*dtype.Query
 	initialized bool
 }
@@ -51,9 +51,8 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.Metri
 
 	var err error
 	metrics := []plugin.MetricType{}
-	data := map[string]interface{}{}
 
-	fmt.Printf("!!!DEBUG CollectMetrics() mts=%+v\n", mts)
+	//fmt.Printf("!!!DEBUG CollectMetrics() mts=%+v\n", mts)
 
 	// initialization - done once
 	if dbiPlg.initialized == false {
@@ -63,7 +62,7 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.Metri
 			// Cannot obtained sql settings
 			return nil, err
 		}
-		err = openDBs(dbiPlg.databases)
+		err = openDBs(dbiPlg.database)
 		if err != nil {
 			return nil, err
 		}
@@ -71,24 +70,63 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.MetricType) ([]plugin.Metri
 	}
 
 	// execute dbs queries and get output
-	data, err = dbiPlg.executeQueries()
-	if err != nil {
-		return nil, err
-	}
+	//data, err = dbiPlg.executeQueries()
+	//if err != nil {
+	//	return nil, err
+	//}
 
+	dbiPlg.database.Executor.ClearCachedResults()
+
+	offset := len(nsPrefix)
 	for _, m := range mts {
-		if value, ok := data[m.Namespace().String()]; ok {
-			metric := plugin.MetricType{
-				Namespace_: m.Namespace(),
-				Data_:      value,
-				Timestamp_: time.Now(),
-				Tags_:      m.Tags(),
-				Version_:   m.Version(),
+		//fmt.Printf("!!!DEBUG CollectMetrics() m.Namespace().String()=%+v\n", m.Namespace().String())
+		for _, queryName := range dbiPlg.database.QrsToExec {
+			query := dbiPlg.queries[queryName]
+			for _, res := range query.Results {
+				//fmt.Printf("!!!DEBUG CollectMetrics() res.CoreNamespace.String()=%+v\n", res.CoreNamespace.String())
+				if res.CoreNamespace.String() == m.Namespace().String() {
+					rows, data, err := dbiPlg.database.Executor.Query(queryName, query.Statement)
+					if err != nil {
+						// log failing query and take the next one
+						fmt.Fprintf(os.Stderr, "Cannot execute query %s for database %s", queryName, dbiPlg.database.DBName)
+						continue
+					}
+					//fmt.Printf("!!!DEBUG CollectMetrics() rows=%+v\n", rows)
+					//fmt.Printf("!!!DEBUG CollectMetrics() data=%+v\n", data)
+					for r := 0; r < rows; r++ {
+						//fmt.Printf("!!!DEBUG CollectMetrics() res.CoreNamespace=%+v\n", res.CoreNamespace)
+						nspace := copyNamespaceStructure(res.CoreNamespace)
+						//fmt.Printf("!!!DEBUG CollectMetrics() nspace1=%+v\n", nspace)
+						value := data[res.ValueFrom][r]
+						if dynamic, dynIdx := nspace.IsDynamic(); dynamic {
+							for _, idx := range dynIdx {
+								col := res.Namespace[idx-offset].InstanceFrom
+								restype := res.Namespace[idx-offset].Type
+								val := data[col][r]
+								nspace[idx].Value = val.(string)
+								if restype == "expand" {
+									nspace[idx].Name = ""
+									nspace[idx].Description = ""
+								}
+							}
+						}
+						//fmt.Printf("!!!DEBUG CollectMetrics() nspace2=%+v\n", nspace)
+						//fmt.Printf("!!!DEBUG CollectMetrics() value=%+v\n", value)
+						metric := plugin.MetricType{
+							Namespace_: nspace,
+							Data_:      value,
+							Timestamp_: time.Now(),
+							Tags_:      m.Tags(),
+							Version_:   m.Version(),
+						}
+						metrics = append(metrics, metric)
+					}
+				}
 			}
-			metrics = append(metrics, metric)
 		}
 	}
 
+	//fmt.Printf("!!!DEBUG CollectMetrics() metrics=%+v\n", metrics)
 	return metrics, nil
 }
 
@@ -108,25 +146,16 @@ func (dbiPlg *DbiPlugin) GetMetricTypes(cfg plugin.ConfigType) ([]plugin.MetricT
 		return nil, err
 	}
 
-	for _, db := range dbiPlg.databases { // cycle databases
-		for _, queryName := range db.QrsToExec { // cycle database queries
-			query := dbiPlg.queries[queryName]
-			for _, result := range query.Results { // cycle query results
-				namespace := core.NewNamespace(nsPrefix...)
-				// namespace = namespace.AddStaticElement(dbname) //TODO: Do we really need database name as static element, if we can configure it in namespace?
-				for _, ns := range result.Namespace { // cycle result namespaces
-					switch ns.Source {
-					case "string":
-						namespace = namespace.AddStaticElement(ns.String)
-					default:
-						namespace = namespace.AddDynamicElement(ns.Name, ns.Description)
-					}
-				}
-				mt := plugin.MetricType{
-					Namespace_: namespace,
-				}
-				mts = append(mts, mt)
+	for _, queryName := range dbiPlg.database.QrsToExec { // cycle database queries
+		query := dbiPlg.queries[queryName]
+		//fmt.Printf("!!!DEBUG GetMetricTypes() queryName=%+v\n", queryName)
+		for _, result := range query.Results { // cycle query results
+			//fmt.Printf("!!!DEBUG GetMetricTypes() resName=%+v\n", resName)
+			//fmt.Printf("!!!DEBUG GetMetricTypes() result.CoreNamespace=%+v\n", result.CoreNamespace)
+			mt := plugin.MetricType{
+				Namespace_: result.CoreNamespace,
 			}
+			mts = append(mts, mt)
 		}
 	}
 
@@ -135,7 +164,7 @@ func (dbiPlg *DbiPlugin) GetMetricTypes(cfg plugin.ConfigType) ([]plugin.MetricT
 
 // New returns snap-plugin-collector-dbi instance
 func New() *DbiPlugin {
-	dbiPlg := &DbiPlugin{databases: map[string]*dtype.Database{}, queries: map[string]*dtype.Query{}, initialized: false}
+	dbiPlg := &DbiPlugin{queries: map[string]*dtype.Query{}, initialized: false}
 
 	return dbiPlg
 }
@@ -149,10 +178,36 @@ func (dbiPlg *DbiPlugin) setConfig(cfg interface{}) error {
 		return err
 	}
 
-	dbiPlg.databases, dbiPlg.queries, err = parser.GetDBItemsFromConfig(setFile.(string))
+	//fmt.Printf("!!!DEBUG setConfig() setFile=%+v\n", setFile)
+	dbiPlg.database, dbiPlg.queries, err = parser.GetDBItemsFromConfig(setFile.(string))
+	//fmt.Printf("!!!DEBUG setConfig() dbiPlg.databases=%+v\n", dbiPlg.database)
+	//fmt.Printf("!!!DEBUG setConfig() dbiPlg.queries=%+v\n", dbiPlg.queries)
+
 	if err != nil {
 		// cannot parse sql config contents
 		return err
+	}
+
+	for _, queryName := range dbiPlg.database.QrsToExec { // cycle database queries
+		//fmt.Printf("!!!DEBUG setConfig() queryName=%+v\n", queryName)
+		query := dbiPlg.queries[queryName]
+		for resName, result := range query.Results { // cycle query results
+			//fmt.Printf("!!!DEBUG setConfig() resName=%+v\n", resName)
+			namespace := core.NewNamespace(nsPrefix...)
+			for _, ns := range result.Namespace { // cycle result namespaces
+				//fmt.Printf("!!!DEBUG setConfig() ns=%+v\n", ns)
+				switch ns.Type {
+				case "static":
+					namespace = namespace.AddStaticElement(ns.String)
+				default:
+					namespace = namespace.AddDynamicElement(ns.Name, ns.Description)
+				}
+			}
+			//fmt.Printf("!!!DEBUG setConfig() namespace=%+v\n", namespace)
+			result.CoreNamespace = namespace
+			dbiPlg.queries[queryName].Results[resName] = result
+			//fmt.Printf("!!!DEBUG setConfig() FULLPATH=%+v\n", dbiPlg.queries[queryName].Results[resName].CoreNamespace.String())
+		}
 	}
 
 	return nil
@@ -164,76 +219,72 @@ func (dbiPlg *DbiPlugin) executeQueries() (map[string]interface{}, error) {
 	data := map[string]interface{}{}
 	//metrics := []plugin.MetricType{}
 
-	//execute queries for each defined databases
-	for dbName, db := range dbiPlg.databases {
-		if !db.Active {
-			//skip if db is not active (none established connection)
-			fmt.Fprintf(os.Stderr, "Cannot execute queries for database %s, is inactive (connection was not established properly)\n", dbName)
+	if !dbiPlg.database.Active {
+		//skip if db is not active (none established connection)
+		fmt.Fprintf(os.Stderr, "Cannot execute queries for database %s, is inactive (connection was not established properly)\n", dbiPlg.database.DBName)
+	}
+
+	// retrieve name from queries to be executed for this db
+	for _, queryName := range dbiPlg.database.QrsToExec {
+		statement := dbiPlg.queries[queryName].Statement
+
+		fmt.Printf("!!!DEBUG executeQueries() queryName=%+v\n", queryName)
+		fmt.Printf("!!!DEBUG executeQueries() statement=%+v\n", statement)
+
+		_, out, err := dbiPlg.database.Executor.Query(queryName, statement)
+		if err != nil {
+			// log failing query and take the next one
+			fmt.Fprintf(os.Stderr, "Cannot execute query %s for database %s", queryName, dbiPlg.database.DBName)
 			continue
 		}
 
-		// retrieve name from queries to be executed for this db
-		for _, queryName := range db.QrsToExec {
-			statement := dbiPlg.queries[queryName].Statement
+		fmt.Printf("!!!DEBUG executeQueries() out=%+v\n", out)
+		//fmt.Printf("!!!DEBUG executeQueries() dbiPlg.queries[queryName].Results=%+v\n", dbiPlg.queries[queryName].Results)
 
-			fmt.Printf("!!!DEBUG executeQueries() queryName=%+v\n", queryName)
-			fmt.Printf("!!!DEBUG executeQueries() statement=%+v\n", statement)
+		for resName, res := range dbiPlg.queries[queryName].Results {
+			instanceOk := false
+			// to avoid inconsistency of columns names caused by capital letters (especially for postgresql driver)
+			//instanceFrom := strings.ToLower(res.InstanceFrom)
 
-			out, err := db.Executor.Query(queryName, statement)
-			if err != nil {
-				// log failing query and take the next one
-				fmt.Fprintf(os.Stderr, "Cannot execute query %s for database %s", queryName, dbName)
-				continue
-			}
+			fmt.Printf("!!!DEBUG executeQueries() resName=%+v\n", resName)
+			fmt.Printf("!!!DEBUG executeQueries() res=%+v\n", res)
 
-			fmt.Printf("!!!DEBUG executeQueries() out=%+v\n", out)
-			fmt.Printf("!!!DEBUG executeQueries() dbiPlg.queries[queryName].Results=%+v\n", dbiPlg.queries[queryName].Results)
+			instanceFrom := strings.ToLower(res.Namespace[0].InstanceFrom)
+			valueFrom := strings.ToLower(res.ValueFrom)
 
-			for resName, res := range dbiPlg.queries[queryName].Results {
-				instanceOk := false
-				// to avoid inconsistency of columns names caused by capital letters (especially for postgresql driver)
-				//instanceFrom := strings.ToLower(res.InstanceFrom)
-
-				fmt.Printf("!!!DEBUG executeQueries() resName=%+v\n", resName)
-				fmt.Printf("!!!DEBUG executeQueries() res=%+v\n", res)
-
-				instanceFrom := strings.ToLower(res.Namespace[0].InstanceFrom)
-				valueFrom := strings.ToLower(res.ValueFrom)
-
-				if !isEmpty(instanceFrom) {
-					if len(out[instanceFrom]) == len(out[valueFrom]) {
-						instanceOk = true
-					}
-				}
-
-				fmt.Printf("!!!DEBUG executeQueries() instanceOk=%+v\n", instanceOk)
-
-				for index, value := range out[valueFrom] {
-					instance := ""
-
-					if instanceOk {
-						instance = fmt.Sprintf("%v", fixDataType(out[instanceFrom][index]))
-					}
-
-					fmt.Printf("!!!DEBUG executeQueries() instance=%+v\n", instance)
-
-					//TODO: !!!! create correct Namespace with dynamic elements
-					key := createNamespace(dbName, resName, res.InstancePrefix, instance)
-
-					fmt.Printf("!!!DEBUG executeQueries() key=%+v\n", key)
-
-					if _, exist := data[key]; exist {
-						return nil, fmt.Errorf("Namespace `%s` has to be unique, but is not", key)
-					}
-
-					fmt.Printf("!!!DEBUG executeQueries() value=%+v\n", value)
-					fmt.Printf("!!!DEBUG executeQueries() fixDataType(value)=%+v\n", fixDataType(value))
-
-					data[key] = fixDataType(value)
+			if !isEmpty(instanceFrom) {
+				if len(out[instanceFrom]) == len(out[valueFrom]) {
+					instanceOk = true
 				}
 			}
-		} // end of range db_queries_to_execute
-	} // end of range databases
+
+			fmt.Printf("!!!DEBUG executeQueries() instanceOk=%+v\n", instanceOk)
+
+			for index, value := range out[valueFrom] {
+				instance := ""
+
+				if instanceOk {
+					instance = fmt.Sprintf("%v", fixDataType(out[instanceFrom][index]))
+				}
+
+				fmt.Printf("!!!DEBUG executeQueries() instance=%+v\n", instance)
+
+				//TODO: !!!! create correct Namespace with dynamic elements
+				key := createNamespace(dbiPlg.database.DBName, resName, res.InstancePrefix, instance)
+
+				fmt.Printf("!!!DEBUG executeQueries() key=%+v\n", key)
+
+				if _, exist := data[key]; exist {
+					return nil, fmt.Errorf("Namespace `%s` has to be unique, but is not", key)
+				}
+
+				fmt.Printf("!!!DEBUG executeQueries() value=%+v\n", value)
+				fmt.Printf("!!!DEBUG executeQueries() fixDataType(value)=%+v\n", fixDataType(value))
+
+				data[key] = fixDataType(value)
+			}
+		}
+	} // end of range db_queries_to_execute
 
 	if len(data) == 0 {
 		return nil, fmt.Errorf("No data obtained from defined queries")
@@ -260,4 +311,18 @@ func fixDataType(arg interface{}) interface{} {
 	}
 
 	return result
+}
+
+func copyNamespaceStructure(nspace core.Namespace) core.Namespace {
+	ret := core.NewNamespace()
+	for _, nse := range nspace {
+		//fmt.Printf("!!!DEBUG copyNamespaceStructure() nse=%+v\n", nse)
+		if nse.IsDynamic() {
+			ret = ret.AddDynamicElement(nse.Name, nse.Description)
+		} else {
+			ret = ret.AddStaticElement(nse.Value)
+		}
+	}
+	//fmt.Printf("!!!DEBUG copyNamespaceStructure() ret=%+v\n", ret)
+	return ret
 }

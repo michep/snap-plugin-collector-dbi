@@ -20,7 +20,7 @@ package cfg
 
 type SQLConfig struct {
 	Queries   []QueryType     `json:"queries"`
-	Databases []DatabasesType `json:"databases"`
+	Database DatabasesType    `json:"database"`
 }
 
 type QueryType struct {
@@ -36,7 +36,7 @@ type QueryResultType struct {
 }
 
 type QueryNamespaceType struct {
-	Source       string `json:"source"`
+	Type         string `json:"type"`
 	Name         string `json:"name"`
 	Description  string `json:"description"`
 	InstanceFrom string `json:"instance_from"`

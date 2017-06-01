@@ -17,7 +17,6 @@ limitations under the License.
 package dbi
 
 import (
-	"errors"
 	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -88,18 +87,10 @@ func openDB(db *dtype.Database) error {
 }
 
 // openDBs opens databases and verifies connections by calling ping to them
-func openDBs(dbs map[string]*dtype.Database) error {
-	once := false
-	for i := range dbs {
-		err := openDB(dbs[i])
-		if err != nil {
-			return err
-		}
-		once = true
-	}
-
-	if !once {
-		return errors.New("Cannot open any of defined database")
+func openDBs(db *dtype.Database) error {
+	err := openDB(db)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -118,14 +109,11 @@ func closeDB(db *dtype.Database) error {
 }
 
 // closeDBs closes databases (exported due to use in main.go)
-func closeDBs(dbs map[string]*dtype.Database) []error {
-	//errors := []error{}
+func closeDBs(db *dtype.Database) []error {
 	var errors []error
-	for i := range dbs {
-		err := closeDB(dbs[i])
-		if err != nil {
-			errors = append(errors, err)
-		}
+	err := closeDB(db)
+	if err != nil {
+		errors = append(errors, err)
 	}
 	return errors
 }
