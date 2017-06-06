@@ -56,20 +56,17 @@ func GetDBItemsFromConfig(fName string) (*dtype.Database, map[string]*dtype.Quer
 
 	err = json.Unmarshal(data, &sqlCnf)
 
-	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() sqlCnf=%+v\n", sqlCnf)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("Invalid structure of file `%v` to be unmarshalled", fName)
 	}
 
-	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() sqlCnf=%+v\n", sqlCnf)
 
 	p := &Parser{
 		qrs: map[string]*dtype.Query{},
 		//db: map[string]*dtype.Database{},
 	}
 
-	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() p1=%+v\n", p)
 
 	for _, query := range sqlCnf.Queries {
 		err := p.addQuery(query)
@@ -79,15 +76,10 @@ func GetDBItemsFromConfig(fName string) (*dtype.Database, map[string]*dtype.Quer
 
 	}
 
-	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() p2=%+v\n", p)
-
 	err = p.addDatabase(sqlCnf.Database)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() db=%+v\n", p.db)
-	//fmt.Printf("!!!DEBUG GetDBItemsFromConfig() qrs=%+v\n", p.qrs)
 
 	return p.db, p.qrs, nil
 }

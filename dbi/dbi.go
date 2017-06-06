@@ -47,8 +47,6 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 	var err error
 	metrics := []plugin.Metric{}
 
-	//fmt.Printf("!!!DEBUG CollectMetrics() mts=%+v\n", mts)
-
 	// initialization - done once
 	if dbiPlg.initialized == false {
 		// CollectMetrics(mts) is called only when mts has one item at least
@@ -74,11 +72,9 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 
 	offset := len(nsPrefix)
 	for _, m := range mts {
-		//fmt.Printf("!!!DEBUG CollectMetrics() m.Namespace().String()=%+v\n", m.Namespace().String())
 		for _, queryName := range dbiPlg.database.QrsToExec {
 			query := dbiPlg.queries[queryName]
 			for _, res := range query.Results {
-				//fmt.Printf("!!!DEBUG CollectMetrics() res.CoreNamespace.String()=%+v\n", res.CoreNamespace.String())
 				if strings.Join(res.CoreNamespace.Strings(), "/") == strings.Join(m.Namespace.Strings(), "/") {
 					rows, data, err := dbiPlg.database.Executor.Query(queryName, query.Statement)
 					if err != nil {
@@ -86,12 +82,8 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 						fmt.Fprintf(os.Stderr, "Cannot execute query %s for database %s", queryName, dbiPlg.database.DBName)
 						continue
 					}
-					//fmt.Printf("!!!DEBUG CollectMetrics() rows=%+v\n", rows)
-					//fmt.Printf("!!!DEBUG CollectMetrics() data=%+v\n", data)
 					for r := 0; r < rows; r++ {
-						//fmt.Printf("!!!DEBUG CollectMetrics() res.CoreNamespace=%+v\n", res.CoreNamespace)
 						nspace := copyNamespaceStructure(res.CoreNamespace)
-						//fmt.Printf("!!!DEBUG CollectMetrics() nspace1=%+v\n", nspace)
 						value := data[res.ValueFrom][r]
 						if dynamic, dynIdx := nspace.IsDynamic(); dynamic {
 							for _, idx := range dynIdx {
@@ -105,8 +97,6 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 								}
 							}
 						}
-						//fmt.Printf("!!!DEBUG CollectMetrics() nspace2=%+v\n", nspace)
-						//fmt.Printf("!!!DEBUG CollectMetrics() value=%+v\n", value)
 						metric := plugin.Metric{
 							Namespace: nspace,
 							Data:      value,
@@ -121,7 +111,6 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 		}
 	}
 
-	//fmt.Printf("!!!DEBUG CollectMetrics() metrics=%+v\n", metrics)
 	return metrics, nil
 }
 
@@ -143,10 +132,7 @@ func (dbiPlg *DbiPlugin) GetMetricTypes(cfg plugin.Config) ([]plugin.Metric, err
 
 	for _, queryName := range dbiPlg.database.QrsToExec { // cycle database queries
 		query := dbiPlg.queries[queryName]
-		//fmt.Printf("!!!DEBUG GetMetricTypes() queryName=%+v\n", queryName)
 		for _, result := range query.Results { // cycle query results
-			//fmt.Printf("!!!DEBUG GetMetricTypes() resName=%+v\n", resName)
-			//fmt.Printf("!!!DEBUG GetMetricTypes() result.CoreNamespace=%+v\n", result.CoreNamespace)
 			mt := plugin.Metric{
 				Namespace: result.CoreNamespace,
 				Version: Version,
@@ -169,18 +155,10 @@ func New() *DbiPlugin {
 // about databases and queries) and assigned them to appriopriate DBiPlugin fields
 func (dbiPlg *DbiPlugin) setConfig(cfg interface{}) error {
 	var err error
-	fmt.Printf("!!!DEBUG setConfig() before config.GetConfigItem\n")
-	fmt.Printf("!!!DEBUG setConfig() cfg type %T\n", cfg)
-	fmt.Printf("!!!DEBUG setConfig() cfg %+v\n", cfg)
 
 	setFile := cfg.(plugin.Config)["setfile"]
 
-	fmt.Printf("!!!DEBUG setConfig() after config.GetConfigItem\n")
-
-	//fmt.Printf("!!!DEBUG setConfig() setFile=%+v\n", setFile)
 	dbiPlg.database, dbiPlg.queries, err = parser.GetDBItemsFromConfig(setFile.(string))
-	//fmt.Printf("!!!DEBUG setConfig() dbiPlg.databases=%+v\n", dbiPlg.database)
-	//fmt.Printf("!!!DEBUG setConfig() dbiPlg.queries=%+v\n", dbiPlg.queries)
 
 	if err != nil {
 		// cannot parse sql config contents
@@ -188,13 +166,10 @@ func (dbiPlg *DbiPlugin) setConfig(cfg interface{}) error {
 	}
 
 	for _, queryName := range dbiPlg.database.QrsToExec { // cycle database queries
-		//fmt.Printf("!!!DEBUG setConfig() queryName=%+v\n", queryName)
 		query := dbiPlg.queries[queryName]
 		for resName, result := range query.Results { // cycle query results
-			//fmt.Printf("!!!DEBUG setConfig() resName=%+v\n", resName)
 			namespace := plugin.NewNamespace(nsPrefix...)
 			for _, ns := range result.Namespace { // cycle result namespaces
-				//fmt.Printf("!!!DEBUG setConfig() ns=%+v\n", ns)
 				switch ns.Type {
 				case "static":
 					namespace = namespace.AddStaticElement(ns.String)
@@ -202,10 +177,8 @@ func (dbiPlg *DbiPlugin) setConfig(cfg interface{}) error {
 					namespace = namespace.AddDynamicElement(ns.Name, ns.Description)
 				}
 			}
-			//fmt.Printf("!!!DEBUG setConfig() namespace=%+v\n", namespace)
 			result.CoreNamespace = namespace
 			dbiPlg.queries[queryName].Results[resName] = result
-			//fmt.Printf("!!!DEBUG setConfig() FULLPATH=%+v\n", dbiPlg.queries[queryName].Results[resName].CoreNamespace.String())
 		}
 	}
 
@@ -234,13 +207,11 @@ func fixDataType(arg interface{}) interface{} {
 func copyNamespaceStructure(nspace plugin.Namespace) plugin.Namespace {
 	ret := plugin.NewNamespace()
 	for _, nse := range nspace {
-		//fmt.Printf("!!!DEBUG copyNamespaceStructure() nse=%+v\n", nse)
 		if nse.IsDynamic() {
 			ret = ret.AddDynamicElement(nse.Name, nse.Description)
 		} else {
 			ret = ret.AddStaticElement(nse.Value)
 		}
 	}
-	//fmt.Printf("!!!DEBUG copyNamespaceStructure() ret=%+v\n", ret)
 	return ret
 }

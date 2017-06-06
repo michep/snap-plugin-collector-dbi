@@ -74,7 +74,6 @@ func (se *SQLExecutor) SwitchToDB(dbName string) error {
 // Query executes a query and returns its output in convenient format (as a map to its values where keys are the names of columns)
 func (se *SQLExecutor) Query(name, statement string) (int, map[string][]interface{}, error) {
 	if table, exist := se.queryResults[name]; exist { // check that we already have query results
-		//fmt.Printf("!!!DEBUG Query() got cached table=%+v\n", table)
 		return se.rowNums[name], table, nil
 	}
 
@@ -111,11 +110,8 @@ func (se *SQLExecutor) Query(name, statement string) (int, map[string][]interfac
 			return 0, nil, err
 		}
 
-		//fmt.Printf("!!!DEBUG Query() vals=%+v\n", vals)
 		for i, val := range vals {
 			columnName := strings.ToLower(cols[i])
-			//fmt.Printf("!!!DEBUG Query() val=%+v\n", val)
-			//fmt.Printf("!!!DEBUG Query() columnName=%+v\n", columnName)
 			table[columnName] = append(table[columnName], val)
 		}
 		cnt++
