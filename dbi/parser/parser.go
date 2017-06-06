@@ -145,10 +145,10 @@ func (p *Parser) addQuery(qt cfg.QueryType) error {
 			return fmt.Errorf("Query `%+s` has Result `%+s` which name is not unique", qt.Name, r.ResultName)
 		}
 
-		namesp := []dtype.Namespace{}
-		el := dtype.Namespace{}
+		namesp := []dtype.NamespaceT{}
+		el := dtype.NamespaceT{}
 		for _, ns := range r.Namespace {
-			el = dtype.Namespace{
+			el = dtype.NamespaceT{
 				Type:         ns.Type,
 				String:       ns.String,
 				Name:         ns.Name,

@@ -17,19 +17,14 @@ limitations under the License.
 package main
 
 import (
-	"os"
-
 	// Import the snap plugin library
-	"github.com/intelsdi-x/snap/control/plugin"
+	//"github.com/intelsdi-x/snap/control/plugin"
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 
 	// Import our collector plugin implementation
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi"
 )
 
 func main() {
-	plugin.Start(
-		plugin.NewPluginMeta(dbi.Name, dbi.Version, dbi.Type, []string{}, []string{plugin.SnapGOBContentType}, plugin.ConcurrencyCount(1)),
-		dbi.New(),
-		os.Args[1],
-	)
+	plugin.StartCollector(&dbi.DbiPlugin{}, dbi.Name, dbi.Version)
 }

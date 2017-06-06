@@ -18,7 +18,7 @@ package dtype
 
 import (
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/executor"
-	"github.com/intelsdi-x/snap/core"
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 )
 
 // Database holds connection information (driver, host, username etc.),
@@ -47,13 +47,13 @@ type Query struct {
 // distinguish results defined by `InstanceFrom` (additionally prefix can be added)
 // or whose content will be used as the actual data dfined by `ValueFrom.
 type Result struct {
-	Namespace      []Namespace
-	CoreNamespace  core.Namespace
+	Namespace      []NamespaceT
+	CoreNamespace  plugin.Namespace
 	InstancePrefix string
 	ValueFrom      string
 }
 
-type Namespace struct {
+type NamespaceT struct {
 	Type         string
 	Name         string
 	Description  string
