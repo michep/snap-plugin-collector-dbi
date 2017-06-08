@@ -24,13 +24,13 @@ import (
 // Database holds connection information (driver, host, username etc.),
 // names of queries to perform and instance of executor which stores handle to db
 type Database struct {
-	Driver    string
-	Host      string
-	Port      string
-	Username  string
-	Password  string
-	DBName    string
-	SelectDB  string
+	Driver    string `mapstructure:"driver"`
+	Host      string `mapstructure:"host"`
+	Port      string `mapstructure:"port"`
+	Username  string `mapstructure:"username"`
+	Password  string `mapstructure:"password"`
+	DBName    string `mapstructure:"dbname"`
+	SelectDB  string `mapstructure:"selectdb"`
 	Executor  executor.Execution
 	Active    bool
 	QrsToExec []string // names of queries to be executed for the database

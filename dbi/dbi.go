@@ -28,9 +28,7 @@ import (
 )
 
 const (
-	// Name of plugin
 	Name = "dbi"
-	// Version of plugin
 	Version = 4
 )
 
@@ -49,8 +47,12 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 
 	// initialization - done once
 	if dbiPlg.initialized == false {
-		// CollectMetrics(mts) is called only when mts has one item at least
-		err = dbiPlg.setConfig(mts[0].Config)
+		err = dbiPlg.setQueriesConfig(mts[0].Config)
+		if err != nil {
+			// cannot obtained sql settings from Global Config
+			return nil, err
+		}
+		err = dbiPlg.setDatabaseConfig(mts[0].Config)
 		if err != nil {
 			// Cannot obtained sql settings
 			return nil, err
@@ -61,12 +63,6 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 		}
 		dbiPlg.initialized = true
 	}
-
-	// execute dbs queries and get output
-	//data, err = dbiPlg.executeQueries()
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	dbiPlg.database.Executor.ClearCachedResults()
 
@@ -124,14 +120,13 @@ func (dbiPlg *DbiPlugin) GetConfigPolicy() (plugin.ConfigPolicy, error) {
 func (dbiPlg *DbiPlugin) GetMetricTypes(cfg plugin.Config) ([]plugin.Metric, error) {
 	mts := []plugin.Metric{}
 
-	err := dbiPlg.setConfig(cfg)
+	err := dbiPlg.setQueriesConfig(cfg)
 	if err != nil {
 		// cannot obtained sql settings from Global Config
 		return nil, err
 	}
 
-	for _, queryName := range dbiPlg.database.QrsToExec { // cycle database queries
-		query := dbiPlg.queries[queryName]
+	for _, query := range dbiPlg.queries { // cycle queries
 		for _, result := range query.Results { // cycle query results
 			mt := plugin.Metric{
 				Namespace: result.CoreNamespace,
@@ -153,20 +148,19 @@ func New() *DbiPlugin {
 
 // setConfig extracts config item from Global Config or Metric Config, parses its contents (mainly information
 // about databases and queries) and assigned them to appriopriate DBiPlugin fields
-func (dbiPlg *DbiPlugin) setConfig(cfg interface{}) error {
+func (dbiPlg *DbiPlugin) setQueriesConfig(cfg plugin.Config) error {
 	var err error
 
-	setFile := cfg.(plugin.Config)["setfile"]
+	setFile := cfg["setfile"]
 
-	dbiPlg.database, dbiPlg.queries, err = parser.GetDBItemsFromConfig(setFile.(string))
+	dbiPlg.queries, err = parser.GetQueriesFromConfig(setFile.(string))
 
 	if err != nil {
 		// cannot parse sql config contents
 		return err
 	}
 
-	for _, queryName := range dbiPlg.database.QrsToExec { // cycle database queries
-		query := dbiPlg.queries[queryName]
+	for queryName, query := range dbiPlg.queries { // cycle queries
 		for resName, result := range query.Results { // cycle query results
 			namespace := plugin.NewNamespace(nsPrefix...)
 			for _, ns := range result.Namespace { // cycle result namespaces
@@ -180,6 +174,19 @@ func (dbiPlg *DbiPlugin) setConfig(cfg interface{}) error {
 			result.CoreNamespace = namespace
 			dbiPlg.queries[queryName].Results[resName] = result
 		}
+	}
+
+	return nil
+}
+
+func (dbiPlg *DbiPlugin) setDatabaseConfig(cfg plugin.Config) error {
+	var err error
+
+	dbiPlg.database, err = parser.GetDatabaseFromConfig(cfg)
+
+	if err != nil {
+		// cannot parse sql config contents
+		return err
 	}
 
 	return nil

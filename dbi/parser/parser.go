@@ -26,17 +26,22 @@ import (
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/dtype"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/executor"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/parser/cfg"
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
+	"github.com/mitchellh/mapstructure"
+)
+
+var (
+	databaseOptions = []string{"driver", "host", "port", "username", "password", "dbname", "dbqueries", "selectdb"}
 )
 
 // Parser holds maps to queries and databases
 type Parser struct {
 	qrs map[string]*dtype.Query
-	db  *dtype.Database
 }
 
 // GetDBItemsFromConfig parses the contents of the file `fName` and returns maps to
 // databases and queries instances which structurs are pre-defined in package dtype
-func GetDBItemsFromConfig(fName string) (*dtype.Database, map[string]*dtype.Query, error) {
+func GetQueriesFromConfig(fName string) (map[string]*dtype.Query, error) {
 
 	var sqlCnf cfg.SQLConfig
 
@@ -47,75 +52,63 @@ func GetDBItemsFromConfig(fName string) (*dtype.Database, map[string]*dtype.Quer
 
 	data, err := ioutil.ReadFile(fName)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if len(data) == 0 {
-		return nil, nil, fmt.Errorf("SQL settings file `%v` is empty", fName)
+		return nil, fmt.Errorf("SQL settings file `%v` is empty", fName)
 	}
 
 	err = json.Unmarshal(data, &sqlCnf)
 
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("Invalid structure of file `%v` to be unmarshalled", fName)
+		return nil, fmt.Errorf("Invalid structure of file `%v` to be unmarshalled", fName)
 	}
 
 
 	p := &Parser{
 		qrs: map[string]*dtype.Query{},
-		//db: map[string]*dtype.Database{},
 	}
 
 
 	for _, query := range sqlCnf.Queries {
 		err := p.addQuery(query)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-
 	}
 
-	err = p.addDatabase(sqlCnf.Database)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return p.db, p.qrs, nil
+	return p.qrs, nil
 }
 
 // addDatabase adds database instance to databases
-func (p *Parser) addDatabase(dt cfg.DatabasesType) error {
-
-	if len(strings.TrimSpace(dt.Name)) == 0 {
-		return fmt.Errorf("Database name is empty")
-	}
-
-	//if _, exist := p.dbs[dt.Name]; exist {
-	//	return fmt.Errorf("Database name `%+s` is not unique", dt.Name)
-	//}
-
-	//getting info about which queries are to be executed
-	execQrs := []string{}
-	for _, q := range dt.QueryToExecute {
-		execQrs = append(execQrs, q.QueryName)
-	}
-
-	// adding database to databases map
-	p.db = &dtype.Database{
-		Driver:    dt.Driver,
-		Host:      dt.DriverOption.Host,
-		Port:      dt.DriverOption.Port,
-		Username:  dt.DriverOption.Username,
-		Password:  dt.DriverOption.Password,
-		DBName:    dt.DriverOption.DbName,
-		SelectDB:  dt.SelectDb,
+func GetDatabaseFromConfig(cfg plugin.Config) (*dtype.Database, error) {
+	db := &dtype.Database{
 		Active:    false,
-		QrsToExec: execQrs,
 		Executor:  executor.NewExecutor(),
 	}
 
-	return nil
+	opts := make(map[string]interface{})
+
+	for _, opt := range databaseOptions {
+		if op, exists := cfg[opt]; exists {
+			opts[opt] = op
+		}
+	}
+
+	err := mapstructure.Decode(opts, db)
+	if err != nil {
+		return nil, err
+	}
+
+	queries := make([]string, 0)
+	for _, query := range strings.Split(cfg["dbqueries"].(string), ",") {
+		queries = append(queries, strings.TrimSpace(query))
+	}
+	db.QrsToExec = queries
+
+	return db, nil
 }
 
 // addQuery adds query instance to queries

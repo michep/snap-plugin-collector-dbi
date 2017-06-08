@@ -20,7 +20,6 @@ package cfg
 
 type SQLConfig struct {
 	Queries   []QueryType     `json:"queries"`
-	Database DatabasesType    `json:"database"`
 }
 
 type QueryType struct {
@@ -41,24 +40,4 @@ type QueryNamespaceType struct {
 	Description  string `json:"description"`
 	InstanceFrom string `json:"instance_from"`
 	String       string `json:"string"`
-}
-
-type DatabasesType struct {
-	Name           string           `json:"name"`
-	Driver         string           `json:"driver"`
-	DriverOption   DriverOptionType `json:"driver_option"`
-	SelectDb       string           `json:"selectdb"`
-	QueryToExecute []DBQueryType    `json:"dbqueries"`
-}
-
-type DBQueryType struct {
-	QueryName string `json:"query"`
-}
-
-type DriverOptionType struct {
-	Host     string `json:"host"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	DbName   string `json:"dbname"`
-	Port     string `json:"port"`
 }
