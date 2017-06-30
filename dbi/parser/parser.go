@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/dtype"
@@ -28,10 +29,11 @@ import (
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/parser/cfg"
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 	"github.com/mitchellh/mapstructure"
+	"github.com/ghodss/yaml"
 )
 
 var (
-	databaseOptions = []string{"driver", "host", "port", "username", "password", "dbname", "dbqueries", "selectdb"}
+	databaseOptions = []string{"name", "driver", "host", "port", "username", "password", "dbname", "dbqueries", "selectdb"}
 )
 
 // Parser holds maps to queries and databases
@@ -50,6 +52,8 @@ func GetQueriesFromConfig(fName string) (map[string]*dtype.Query, error) {
 		fName = expandFileName(fName)
 	}
 
+	ext := filepath.Ext(fName)
+
 	data, err := ioutil.ReadFile(fName)
 	if err != nil {
 		return nil, err
@@ -59,13 +63,20 @@ func GetQueriesFromConfig(fName string) (map[string]*dtype.Query, error) {
 		return nil, fmt.Errorf("SQL settings file `%v` is empty", fName)
 	}
 
-	err = json.Unmarshal(data, &sqlCnf)
-
-
-	if err != nil {
-		return nil, fmt.Errorf("Invalid structure of file `%v` to be unmarshalled", fName)
+	switch ext {
+		case ".yaml", ".yml":
+			err = yaml.Unmarshal(data, &sqlCnf)
+			if err != nil {
+				return nil, fmt.Errorf("Error parsing YAML file input - %v\n", err)
+			}
+		case ".json":
+			err = json.Unmarshal(data, &sqlCnf)
+			if err != nil {
+				return nil, fmt.Errorf("Error parsing JSON file input - %v\n", err)
+			}
+		default:
+			return nil, fmt.Errorf("Unsupported file type %s\n", ext)
 	}
-
 
 	p := &Parser{
 		qrs: map[string]*dtype.Query{},

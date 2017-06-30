@@ -24,6 +24,7 @@ import (
 // Database holds connection information (driver, host, username etc.),
 // names of queries to perform and instance of executor which stores handle to db
 type Database struct {
+	Name      string `mapstructure:"name"`
 	Driver    string `mapstructure:"driver"`
 	Host      string `mapstructure:"host"`
 	Port      string `mapstructure:"port"`

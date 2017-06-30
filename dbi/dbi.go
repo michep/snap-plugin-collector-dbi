@@ -83,8 +83,12 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 						value := data[res.ValueFrom][r]
 						if dynamic, dynIdx := nspace.IsDynamic(); dynamic {
 							for _, idx := range dynIdx {
-								col := res.Namespace[idx-offset].InstanceFrom
 								restype := res.Namespace[idx-offset].Type
+								if restype == "connectionname" {
+									nspace[idx].Value = dbiPlg.database.Name
+									continue
+								}
+								col := res.Namespace[idx-offset].InstanceFrom
 								val := data[col][r]
 								nspace[idx].Value = val.(string)
 								if restype == "expand" {
