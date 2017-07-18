@@ -26,5 +26,5 @@ import (
 )
 
 func main() {
-	plugin.StartCollector(&dbi.DbiPlugin{}, dbi.Name, dbi.Version)
+	plugin.StartCollector(&dbi.DbiPlugin{}, dbi.Name, dbi.Version, plugin.RoutingStrategy(plugin.StickyRouter))
 }
