@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	Name = "dbi"
+	Name    = "dbi"
 	Version = 4
 )
 
@@ -117,6 +117,15 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 // GetConfigPolicy returns config policy
 func (dbiPlg *DbiPlugin) GetConfigPolicy() (plugin.ConfigPolicy, error) {
 	c := plugin.NewConfigPolicy()
+	c.AddNewStringRule([]string{"intel", "dbi"}, "setfile", true)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "name", true)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "driver", true)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "host", true)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "port", false)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "username", false)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "password", false)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "dbname", false)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "dbqueries", false)
 	return *c, nil
 }
 
@@ -134,7 +143,7 @@ func (dbiPlg *DbiPlugin) GetMetricTypes(cfg plugin.Config) ([]plugin.Metric, err
 		for _, result := range query.Results { // cycle query results
 			mt := plugin.Metric{
 				Namespace: result.CoreNamespace,
-				Version: Version,
+				Version:   Version,
 			}
 			mts = append(mts, mt)
 		}
