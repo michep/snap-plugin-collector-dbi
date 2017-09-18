@@ -32,6 +32,7 @@ type Database struct {
 	Password  string `mapstructure:"password"`
 	DBName    string `mapstructure:"dbname"`
 	SelectDB  string `mapstructure:"selectdb"`
+	Role      string `mapstructure:"role"`
 	Executor  executor.Execution
 	Active    bool
 	QrsToExec []string // names of queries to be executed for the database

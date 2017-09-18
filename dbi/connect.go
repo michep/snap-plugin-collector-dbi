@@ -21,7 +21,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-oci8"
+	_ "gopkg.in/rana/ora.v4"
 
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/dtype"
 )
@@ -31,7 +31,7 @@ import (
 var defaultPort = map[string]string{
 	"mysql":    "3306",
 	"postgres": "5432",
-	"oci8":     "1521",
+	"ora":      "1521",
 }
 
 // getDefaultPort returns default port for specific driver
@@ -57,9 +57,12 @@ func openDB(db *dtype.Database) error {
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s",
 			db.Username, db.Password, db.Host, db.Port, db.DBName)
 
-	case "oci8":
+	case "ora":
 		dsn = fmt.Sprintf("%s/%s@%s:%s/%s",
 			db.Username, db.Password, db.Host, db.Port, db.DBName)
+		if db.Role != "" {
+			dsn += fmt.Sprintf(" AS %s", db.Role)
+		}
 	default:
 		return fmt.Errorf("SQL Driver %s is not supported", db.Driver)
 	}

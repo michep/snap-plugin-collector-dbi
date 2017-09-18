@@ -17,10 +17,9 @@ limitations under the License.
 package dbi
 
 import (
-	"fmt"
-	"os"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/dtype"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/parser"
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
@@ -44,9 +43,10 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 
 	var err error
 	metrics := []plugin.Metric{}
-
+	log.Info("CollectMetrics() called")
 	// initialization - done once
 	if dbiPlg.initialized == false {
+		log.Debug("CollectMetrics() initialization")
 		err = dbiPlg.setQueriesConfig(mts[0].Config)
 		if err != nil {
 			// cannot obtained sql settings from Global Config
@@ -68,14 +68,20 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 
 	offset := len(nsPrefix)
 	for _, m := range mts {
+		log.WithFields(log.Fields{"metric ns": m.Namespace.Strings()}).Debug("CollectMetrics() loop metric ns")
 		for _, queryName := range dbiPlg.database.QrsToExec {
 			query := dbiPlg.queries[queryName]
+			log.WithFields(log.Fields{"query": query}).Debug("CollectMetrics() loop query")
 			for _, res := range query.Results {
+				log.WithFields(log.Fields{"result ns": res.CoreNamespace.Strings()}).Debug("CollectMetrics() loop result namespace")
 				if strings.Join(res.CoreNamespace.Strings(), "/") == strings.Join(m.Namespace.Strings(), "/") {
 					rows, data, err := dbiPlg.database.Executor.Query(queryName, query.Statement)
 					if err != nil {
 						// log failing query and take the next one
-						fmt.Fprintf(os.Stderr, "Cannot execute query %s for database %s", queryName, dbiPlg.database.DBName)
+						log.WithFields(log.Fields{
+							"query name":      queryName,
+							"query statement": query.Statement,
+							"database name":   dbiPlg.database.DBName}).Error("Cannot execute query")
 						continue
 					}
 					for r := 0; r < rows; r++ {
@@ -104,6 +110,7 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 							Tags:      m.Tags,
 							Version:   m.Version,
 						}
+						log.WithFields(log.Fields{"metric": metric}).Debug("CollectMetrics() new metric")
 						metrics = append(metrics, metric)
 					}
 				}
@@ -126,6 +133,7 @@ func (dbiPlg *DbiPlugin) GetConfigPolicy() (plugin.ConfigPolicy, error) {
 	c.AddNewStringRule([]string{"intel", "dbi"}, "password", false)
 	c.AddNewStringRule([]string{"intel", "dbi"}, "dbname", false)
 	c.AddNewStringRule([]string{"intel", "dbi"}, "dbqueries", false)
+	c.AddNewStringRule([]string{"intel", "dbi"}, "role", false)
 	return *c, nil
 }
 

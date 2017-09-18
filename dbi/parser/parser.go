@@ -24,16 +24,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/dtype"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/executor"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/parser/cfg"
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 	"github.com/mitchellh/mapstructure"
-	"github.com/ghodss/yaml"
 )
 
 var (
-	databaseOptions = []string{"name", "driver", "host", "port", "username", "password", "dbname", "dbqueries", "selectdb"}
+	databaseOptions = []string{"name", "driver", "host", "port", "username", "password", "dbname", "dbqueries", "selectdb", "role"}
 )
 
 // Parser holds maps to queries and databases
@@ -64,24 +64,23 @@ func GetQueriesFromConfig(fName string) (map[string]*dtype.Query, error) {
 	}
 
 	switch ext {
-		case ".yaml", ".yml":
-			err = yaml.Unmarshal(data, &sqlCnf)
-			if err != nil {
-				return nil, fmt.Errorf("Error parsing YAML file input - %v\n", err)
-			}
-		case ".json":
-			err = json.Unmarshal(data, &sqlCnf)
-			if err != nil {
-				return nil, fmt.Errorf("Error parsing JSON file input - %v\n", err)
-			}
-		default:
-			return nil, fmt.Errorf("Unsupported file type %s\n", ext)
+	case ".yaml", ".yml":
+		err = yaml.Unmarshal(data, &sqlCnf)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing YAML file input - %v\n", err)
+		}
+	case ".json":
+		err = json.Unmarshal(data, &sqlCnf)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing JSON file input - %v\n", err)
+		}
+	default:
+		return nil, fmt.Errorf("Unsupported file type %s\n", ext)
 	}
 
 	p := &Parser{
 		qrs: map[string]*dtype.Query{},
 	}
-
 
 	for _, query := range sqlCnf.Queries {
 		err := p.addQuery(query)
@@ -96,8 +95,8 @@ func GetQueriesFromConfig(fName string) (map[string]*dtype.Query, error) {
 // addDatabase adds database instance to databases
 func GetDatabaseFromConfig(cfg plugin.Config) (*dtype.Database, error) {
 	db := &dtype.Database{
-		Active:    false,
-		Executor:  executor.NewExecutor(),
+		Active:   false,
+		Executor: executor.NewExecutor(),
 	}
 
 	opts := make(map[string]interface{})
