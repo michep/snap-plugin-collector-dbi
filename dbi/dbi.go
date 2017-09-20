@@ -23,6 +23,8 @@ import (
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/dtype"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/parser"
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
+	"gopkg.in/rana/ora.v4"
+	"strconv"
 	"strings"
 )
 
@@ -87,6 +89,10 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 					for r := 0; r < rows; r++ {
 						nspace := copyNamespaceStructure(res.CoreNamespace)
 						value := data[res.ValueFrom][r]
+						switch v := value.(type) {
+						case ora.OCINum:
+							value, _ = strconv.ParseFloat(v.String(), 64)
+						}
 						if dynamic, dynIdx := nspace.IsDynamic(); dynamic {
 							for _, idx := range dynIdx {
 								restype := res.Namespace[idx-offset].Type
