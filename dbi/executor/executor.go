@@ -29,6 +29,7 @@ type Execution interface {
 	SwitchToDB(dbName string) error
 	Query(name, statement string) (int, map[string][]interface{}, error)
 	ClearCachedResults() error
+	ClearStmts() error
 }
 
 // SQLExecutor keeps handle to sql database and map of prepared queries' statements
@@ -142,5 +143,15 @@ func execQuery(se *SQLExecutor, name, statement string) (*sql.Rows, error) {
 
 func (se *SQLExecutor) ClearCachedResults() error {
 	se.queryResults = make(map[string]map[string][]interface{})
+	return nil
+}
+
+func (se *SQLExecutor) ClearStmts() error {
+
+	for n, s := range se.stmts {
+		s.Close()
+		delete(se.stmts, n)
+	}
+
 	return nil
 }

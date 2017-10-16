@@ -68,14 +68,20 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 
 	dbiPlg.database.Executor.ClearCachedResults()
 
+	if err = dbiPlg.database.Executor.Ping(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("database ping failed")
+		dbiPlg.database.Executor.ClearStmts()
+		err = openDBs(dbiPlg.database)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	offset := len(nsPrefix)
 	for _, m := range mts {
-		log.WithFields(log.Fields{"metric ns": m.Namespace.Strings()}).Debug("CollectMetrics() loop metric ns")
 		for _, queryName := range dbiPlg.database.QrsToExec {
 			query := dbiPlg.queries[queryName]
-			log.WithFields(log.Fields{"query": query}).Debug("CollectMetrics() loop query")
 			for _, res := range query.Results {
-				log.WithFields(log.Fields{"result ns": res.CoreNamespace.Strings()}).Debug("CollectMetrics() loop result namespace")
 				if strings.Join(res.CoreNamespace.Strings(), "/") == strings.Join(m.Namespace.Strings(), "/") {
 					rows, data, err := dbiPlg.database.Executor.Query(queryName, query.Statement)
 					if err != nil {
@@ -116,7 +122,6 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 							Tags:      m.Tags,
 							Version:   m.Version,
 						}
-						log.WithFields(log.Fields{"metric": metric}).Debug("CollectMetrics() new metric")
 						metrics = append(metrics, metric)
 					}
 				}
