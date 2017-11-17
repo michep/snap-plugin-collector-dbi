@@ -19,7 +19,7 @@ package dbi
 import (
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/dtype"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/parser"
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
@@ -92,6 +92,8 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 							"database name":   dbiPlg.database.DBName}).Error("Cannot execute query")
 						continue
 					}
+
+					ts := time.Now()
 					for r := 0; r < rows; r++ {
 						nspace := copyNamespaceStructure(res.CoreNamespace)
 						value := data[res.ValueFrom][r]
@@ -118,7 +120,7 @@ func (dbiPlg *DbiPlugin) CollectMetrics(mts []plugin.Metric) ([]plugin.Metric, e
 						metric := plugin.Metric{
 							Namespace: nspace,
 							Data:      value,
-							Timestamp: time.Now(),
+							Timestamp: ts,
 							Tags:      m.Tags,
 							Version:   m.Version,
 						}
