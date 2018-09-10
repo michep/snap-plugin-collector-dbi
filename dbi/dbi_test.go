@@ -1,4 +1,4 @@
-// +build linux,small
+// build linux,small
 
 /*
 http://www.apache.org/licenses/LICENSE-2.0.txt
@@ -144,11 +144,11 @@ func TestGetMetricTypes(t *testing.T) {
 
 			//mockExecution outputs
 			mc.mockExecution(
-				errors.New("x"), // errOpen
-				nil,             // errClose
-				nil,             // errPing
-				nil,             // errSwitchToDB
-				nil,             // errQuery
+				errors.New("x"),            // errOpen
+				nil,                        // errClose
+				nil,                        // errPing
+				nil,                        // errSwitchToDB
+				nil,                        // errQuery
 				map[string][]interface{}{}, // outQuery
 			)
 
@@ -168,11 +168,11 @@ func TestGetMetricTypes(t *testing.T) {
 
 			//mockExecution outputs
 			mc.mockExecution(
-				errors.New("x"), // errOpen
-				errors.New("x"), // errClose
-				nil,             // errPing
-				nil,             // errSwitchToDB
-				nil,             // errQuery
+				errors.New("x"),            // errOpen
+				errors.New("x"),            // errClose
+				nil,                        // errPing
+				nil,                        // errSwitchToDB
+				nil,                        // errQuery
 				map[string][]interface{}{}, // outQuery
 			)
 
@@ -190,11 +190,11 @@ func TestGetMetricTypes(t *testing.T) {
 
 			//mockExecution outputs
 			mc.mockExecution(
-				nil,             // errOpen
-				nil,             // errClose
-				errors.New("x"), // errPing
-				nil,             // errSwitchToDB
-				nil,             // errQuery
+				nil,                        // errOpen
+				nil,                        // errClose
+				errors.New("x"),            // errPing
+				nil,                        // errSwitchToDB
+				nil,                        // errQuery
 				map[string][]interface{}{}, // outQuery
 			)
 
@@ -212,11 +212,11 @@ func TestGetMetricTypes(t *testing.T) {
 
 			//mockExecution outputs
 			mc.mockExecution(
-				nil,             // errOpen
-				nil,             // errClose
-				nil,             // errPing
-				errors.New("x"), // errSwitchToDB
-				nil,             // errQuery
+				nil,                        // errOpen
+				nil,                        // errClose
+				nil,                        // errPing
+				errors.New("x"),            // errSwitchToDB
+				nil,                        // errQuery
 				map[string][]interface{}{}, // outQuery
 			)
 
@@ -257,11 +257,11 @@ func TestGetMetricTypes(t *testing.T) {
 
 			//mockExecution outputs
 			mc.mockExecution(
-				nil, // errOpen
-				nil, // errClose
-				nil, // errPing
-				nil, // errSwitchToDB
-				nil, // errQuery
+				nil,                        // errOpen
+				nil,                        // errClose
+				nil,                        // errPing
+				nil,                        // errSwitchToDB
+				nil,                        // errQuery
 				map[string][]interface{}{}, // outQuery
 			)
 
@@ -358,11 +358,11 @@ func TestCollectMetrics(t *testing.T) {
 
 			//mockExecution outputs
 			mc.mockExecution(
-				errors.New("x"), // errOpen
-				nil,             // errClose
-				nil,             // errPing
-				nil,             // errSwitchToDB
-				nil,             // errQuery
+				errors.New("x"),            // errOpen
+				nil,                        // errClose
+				nil,                        // errPing
+				nil,                        // errSwitchToDB
+				nil,                        // errQuery
 				map[string][]interface{}{}, // outQuery
 			)
 
@@ -402,11 +402,11 @@ func TestCollectMetrics(t *testing.T) {
 
 		//mockExecution outputs
 		mc.mockExecution(
-			nil, // errOpen
-			nil, // errClose
-			nil, // errPing
-			nil, // errSwitchToDB
-			nil, // errQuery
+			nil,                           // errOpen
+			nil,                           // errClose
+			nil,                           // errPing
+			nil,                           // errSwitchToDB
+			nil,                           // errQuery
 			mockdata.QueryOutputTimestamp, // outQuery
 		)
 

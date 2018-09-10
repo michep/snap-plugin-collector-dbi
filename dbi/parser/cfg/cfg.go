@@ -1,4 +1,4 @@
-// +build linux
+// build linux
 
 /*
 http://www.apache.org/licenses/LICENSE-2.0.txt
@@ -19,7 +19,7 @@ package cfg
 // To unmarshal JSON into a struct, structs have to contain exported fields
 
 type SQLConfig struct {
-	Queries   []QueryType     `json:"queries"`
+	Queries []QueryType `json:"queries"`
 }
 
 type QueryType struct {

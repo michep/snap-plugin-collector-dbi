@@ -1,4 +1,4 @@
-// +build linux
+// build linux
 
 /*
 http://www.apache.org/licenses/LICENSE-2.0.txt
@@ -17,15 +17,15 @@ limitations under the License.
 package dbi
 
 import (
+	"strconv"
+	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/dtype"
 	"github.com/intelsdi-x/snap-plugin-collector-dbi/dbi/parser"
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/rana/ora.v4"
-	"strconv"
-	"strings"
 )
 
 const (
